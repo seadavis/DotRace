@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "DotRace.Console": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\thread_runner\\log 15 500"
+    }
+  }
+}
