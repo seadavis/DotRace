@@ -4,13 +4,30 @@ using System.Threading;
 
 class Program
 {
+   class Worker
+   {
+      public required int ThreadId { get; init; }
+
+      public required Thread Thread { get; init; }
+
+      public required AutoResetEvent ContinueSignal { get; init; }
+
+      public required AutoResetEvent CheckpointSignal { get; init; }
+   }
+
    static void Main(string[] args)
    {
 
       int processorCount = Environment.ProcessorCount;
-      if (args.Length != 3 || !int.TryParse(args[1], out int threadCount) || threadCount <= 0 || !int.TryParse(args[2], out int iterations))
+      if (args.Length != 4 ||
+         !int.TryParse(args[1], out int threadCount) ||
+         threadCount <= 0 ||
+         !int.TryParse(args[2], out int iterations) ||
+         iterations <= 0 ||
+         !int.TryParse(args[3], out int pauseIterations) ||
+         pauseIterations <= 0)
       {
-         Console.WriteLine("Usage: dotnet run <baseName> <threadCount> <iterations> ");
+         Console.WriteLine("Usage: dotnet run <baseName> <threadCount> <iterations> <pause_iterations>");
          return;
       }
 
@@ -20,38 +37,77 @@ class Program
          Console.WriteLine("All threads are ready. Starting execution...");
       });
 
-      Thread[] threads = new Thread[threadCount];
+      Queue<Worker> workers = new Queue<Worker>(threadCount);
 
       for (int i = 0; i < threadCount; i++)
       {
          int threadId = i;
          string filePath = $"{baseName}_{threadId}.log";
+         var continueSignal = new AutoResetEvent(false);
+         var checkpointSignal = new AutoResetEvent(false);
 
-         threads[i] = new Thread(() => WriteToFile(filePath, threadId, iterations, barrier));
-         threads[i].Start();
+         var thread = new Thread(() => WriteToFile(filePath, threadId, iterations, pauseIterations, continueSignal, checkpointSignal, barrier));
+         var worker = new Worker()
+         {
+            Thread = thread,
+            ThreadId = threadId,
+            ContinueSignal = continueSignal,
+            CheckpointSignal = checkpointSignal
+         };
+         workers.Enqueue(worker);
+         thread.Start();
       }
 
-      foreach (var thread in threads)
+      while(workers.Any())
       {
-         thread.Join();
+         var worker = workers.Dequeue();
+
+         if (worker.Thread.Join(0))
+         {
+            Console.WriteLine($"Thread {worker.ThreadId} Terminated");
+         }
+         else
+         {
+            worker.ContinueSignal.Set();
+            Console.WriteLine($"Waiting on checkpoint for: {worker.ThreadId}");
+            worker.CheckpointSignal.WaitOne();
+            workers.Enqueue(worker);
+            Console.WriteLine($"Thread: {worker.ThreadId} re-queued");
+         }
       }
 
       Console.WriteLine("All threads finished.");
+      Console.ReadKey();
    }
 
-   static void WriteToFile(string filePath, int threadId, int iterations, Barrier barrier)
+   static void WriteToFile(string filePath,
+                           int threadId,
+                           int iterations,
+                           int pauseIterations,
+                           AutoResetEvent signal,
+                           AutoResetEvent checkpointSignal,
+                           Barrier barrier)
    {
       Console.WriteLine($"Thread {threadId} is ready.");
       barrier.SignalAndWait();
+      Console.WriteLine("All threads are ready");
+
+      signal.WaitOne();
 
       using (StreamWriter writer = new StreamWriter(filePath, append: false))
       {
-         for (int i = 0; i < 100; i++) // Example workload
+         for (int i = 0; i < iterations; i++) // Example workload
          {
+            if((i + 1)%pauseIterations == 0)
+            {
+               checkpointSignal.Set();
+               signal.WaitOne();
+            }
             writer.WriteLine($"Thread {threadId} writing line {i} at {DateTime.Now:O}");
          }
       }
 
+      checkpointSignal.Set();
       Console.WriteLine($"Thread {threadId} finished writing.");
    }
 }

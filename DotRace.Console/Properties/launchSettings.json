@@ -2,7 +2,7 @@
   "profiles": {
     "DotRace.Console": {
       "commandName": "Project",
-      "commandLineArgs": "C:\\thread_runner\\log 15 500"
+      "commandLineArgs": "C:\\thread_runner\\log 15 500 32"
     }
   }
 }
