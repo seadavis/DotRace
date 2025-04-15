@@ -1,5 +1,10 @@
-﻿using System;
+﻿using DotRace.Common;
+using DotRace.Core;
+using System;
+using System.ComponentModel.DataAnnotations;
 using System.IO;
+using System.Reflection;
+using System.Runtime.Loader;
 using System.Threading;
 
 class Program
@@ -17,9 +22,47 @@ class Program
 
    static void Main(string[] args)
    {
+      int processorCount = Environment.ProcessorCount;
+      if (args.Length != 5 ||
+         !TryGetAssembly(args[1], out Assembly testAssembly) ||
+         !int.TryParse(args[2], out int threadCount) ||
+         threadCount <= 0 ||
+         !int.TryParse(args[3], out int iterations) ||
+         iterations <= 0 ||
+         !int.TryParse(args[4], out int pauseIterations) ||
+         pauseIterations <= 0)
+      {
+         Console.WriteLine("Usage: dotnet run <assemblyname> <baseName_of_thread_file> <threadCount> <iterations> <pause_iterations>");
+         return;
+      }
+
+      var testRunner = new TestRunner();
+      testRunner.Run(TestDiscoverer.GetTestFixtures(testAssembly), iterations);
+   }
+
+   static bool TryGetAssembly(string assemblyPath, out Assembly assembly)
+   {
+      try
+      {
+         assembly = Assembly.LoadFile(Path.GetFullPath(assemblyPath));
+      }
+      catch(Exception ex)
+      {
+         Console.WriteLine(ex.Message);
+         assembly = null;
+         return false;
+      }
+
+      return true;
+   }
+
+
+   static void WorkerProcessing(string[] args)
+   {
 
       int processorCount = Environment.ProcessorCount;
-      if (args.Length != 4 ||
+      if (args.Length != 5 ||
+         !TryGetAssembly(args[1], out Assembly testAssembly) ||
          !int.TryParse(args[1], out int threadCount) ||
          threadCount <= 0 ||
          !int.TryParse(args[2], out int iterations) ||
@@ -27,7 +70,7 @@ class Program
          !int.TryParse(args[3], out int pauseIterations) ||
          pauseIterations <= 0)
       {
-         Console.WriteLine("Usage: dotnet run <baseName> <threadCount> <iterations> <pause_iterations>");
+         Console.WriteLine("Usage: dotnet run <assemblyname> <baseName_of_thread_file> <threadCount> <iterations> <pause_iterations>");
          return;
       }
 
