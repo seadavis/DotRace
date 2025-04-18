@@ -4,9 +4,9 @@ using Mono.Cecil.Cil;
 
 namespace DotRace.Core
 {
-    public class Injector
+    internal class Injector
     {
-      public static MemoryStream InjectSynchronizeCall(AssemblyDefinition assembly, IEnumerable<MethodDefinition> methodDefinitions)
+      internal static MemoryStream InjectSynchronizeCall(AssemblyDefinition assembly, IEnumerable<MethodDefinition> methodDefinitions)
       { 
          var module = assembly.MainModule;
 
