@@ -24,7 +24,6 @@ class Program
    {
       int processorCount = Environment.ProcessorCount;
       if (args.Length != 5 ||
-         !TryGetAssembly(args[1], out Assembly testAssembly) ||
          !int.TryParse(args[2], out int threadCount) ||
          threadCount <= 0 ||
          !int.TryParse(args[3], out int iterations) ||
@@ -36,33 +35,22 @@ class Program
          return;
       }
 
+      Synchronizer.Create();
+
+      var testAssembly = args[1];
       var testRunner = new TestRunner();
-      testRunner.Run(TestDiscoverer.GetTestFixtures(testAssembly), iterations);
+      var fixtures = TestDiscoverer.GetTestFixtures(testAssembly);
+
+      testRunner.Run(fixtures, iterations);
    }
 
-   static bool TryGetAssembly(string assemblyPath, out Assembly assembly)
-   {
-      try
-      {
-         assembly = Assembly.LoadFile(Path.GetFullPath(assemblyPath));
-      }
-      catch(Exception ex)
-      {
-         Console.WriteLine(ex.Message);
-         assembly = null;
-         return false;
-      }
-
-      return true;
-   }
-
+   
 
    static void WorkerProcessing(string[] args)
    {
 
       int processorCount = Environment.ProcessorCount;
       if (args.Length != 5 ||
-         !TryGetAssembly(args[1], out Assembly testAssembly) ||
          !int.TryParse(args[1], out int threadCount) ||
          threadCount <= 0 ||
          !int.TryParse(args[2], out int iterations) ||

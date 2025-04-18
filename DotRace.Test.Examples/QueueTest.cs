@@ -24,7 +24,5 @@ namespace DotRace.Test.Examples
       {
          return _queue.Peek();
       }
-
-
     }
 }
