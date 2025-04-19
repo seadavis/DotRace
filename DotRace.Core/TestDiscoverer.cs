@@ -12,7 +12,7 @@ namespace DotRace.Core
       {
          AssemblyDefinition assemblyDefinition = AssemblyDefinition.ReadAssembly(assemblyPath);
          var methods = FindMethodsWithAttribute(assemblyDefinition, typeof(Operation).FullName);
-         var injectedAssembly = Injector.InjectSynchronizeCall(assemblyDefinition, methods);
+         var injectedAssembly = Injector.Inject(assemblyDefinition, methods);
          var testAssembly = Assembly.Load(injectedAssembly.ToArray());
 
 

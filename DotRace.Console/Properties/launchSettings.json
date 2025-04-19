@@ -2,7 +2,7 @@
   "profiles": {
     "DotRace.Console": {
       "commandName": "Project",
-      "commandLineArgs": "C:\\thread_runner\\log ..\\..\\..\\..\\DotRace.Test.Examples\\bin\\Debug\\net9.0\\DotRace.Test.Examples.dll 15 10 32"
+      "commandLineArgs": "C:\\thread_runner\\log ..\\..\\..\\..\\DotRace.Test.Examples\\bin\\Debug\\net9.0\\DotRace.Test.Examples.dll 15 200 7"
     }
   }
 }

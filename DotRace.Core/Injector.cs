@@ -1,32 +1,55 @@
 ﻿using DotRace.Common;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using System.Linq;
 
 namespace DotRace.Core
 {
     internal class Injector
     {
-      internal static MemoryStream InjectSynchronizeCall(AssemblyDefinition assembly, IEnumerable<MethodDefinition> methodDefinitions)
+      internal static MemoryStream Inject(AssemblyDefinition assembly, IEnumerable<MethodDefinition> methodDefinitions)
       { 
          var module = assembly.MainModule;
+         var monitorType = module.ImportReference(typeof(ThreadMonitor));
 
-         var currentProp = module.ImportReference(typeof(Synchronizer).GetProperty("Current").GetGetMethod());
-         var syncMethod = module.ImportReference(typeof(Synchronizer).GetMethod("Synchronize"));
+         var types = methodDefinitions.Select(methodDefinition => methodDefinition.DeclaringType).Distinct();
+         Dictionary<TypeDefinition, FieldDefinition> fields = new Dictionary<TypeDefinition, FieldDefinition>();
+
+         foreach(var type in types)
+         {
+            // Add: private ThreadMonitor _monitor;
+            var field = new FieldDefinition("_monitor", FieldAttributes.Private, monitorType);
+            type.Fields.Add(field);
+            fields.Add(type, field);
+
+            // Add: public void SetMonitor(ThreadMonitor monitor)
+            var setMethod = new MethodDefinition("SetMonitor", MethodAttributes.Public, module.TypeSystem.Void);
+            var param = new ParameterDefinition("monitor", ParameterAttributes.None, monitorType);
+            setMethod.Parameters.Add(param);
+
+            var ilSet = setMethod.Body.GetILProcessor();
+            ilSet.Append(ilSet.Create(OpCodes.Ldarg_0)); // this
+            ilSet.Append(ilSet.Create(OpCodes.Ldarg_1)); // monitor
+            ilSet.Append(ilSet.Create(OpCodes.Stfld, field));
+            ilSet.Append(ilSet.Create(OpCodes.Ret));
+            type.Methods.Add(setMethod);
+         }
 
          foreach (var method in methodDefinitions)
          {
-            if (!method.HasBody)
-               continue;
+            // Inject: this._monitor.WaitForContinue();
+            var waitMethod = typeof(ThreadMonitor).GetMethod("WaitForContinue")!;
+            var waitMethodRef = module.ImportReference(waitMethod);
 
             var il = method.Body.GetILProcessor();
             var first = method.Body.Instructions.First();
+            var field = fields[method.DeclaringType];
 
-            il.InsertBefore(first, il.Create(OpCodes.Call, currentProp));             // Synchronizer.Current
-            il.InsertBefore(first, il.Create(OpCodes.Ldc_I4, 123));                   // push int
-            il.InsertBefore(first, il.Create(OpCodes.Ldstr, "Injected Hello"));            // push string
-            il.InsertBefore(first, il.Create(OpCodes.Callvirt, syncMethod));         // call Synchronize
+            il.InsertBefore(first, il.Create(OpCodes.Ldarg_0));         // this
+            il.InsertBefore(first, il.Create(OpCodes.Ldfld, field));   // this._monitor
+            il.InsertBefore(first, il.Create(OpCodes.Callvirt, waitMethodRef)); // call WaitForContinue()
+
          }
-         
 
          var ms = new MemoryStream();
          assembly.Write(ms);
